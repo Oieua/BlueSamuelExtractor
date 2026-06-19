@@ -10,6 +10,7 @@ Python script to extract the credentials (SAM, NTLM, etc.) from a Windows target
   - Support more robust obfuscation
   - Basic menu/options
   - Create other language implementation like C/C++/Rust etc.
+  - Hash identification and crack mechanism
 
 
 
